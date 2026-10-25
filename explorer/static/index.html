@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f8f9fc" />
+    <meta
+      name="description"
+      content="A simple, local workspace for exploring language model neurons and testing their effects."
+    />
+    <title>LLM Explore — Inside the model</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/" aria-label="LLM Explore home"
+          ><img src="/favicon.svg" alt="" width="34" height="34" /><span
+            >LLM <b>Explore</b><small>INSIDE THE MODEL</small></span
+          ></a
+        >
+        <div class="workspace-label">WORKSPACE</div>
+        <nav aria-label="Main navigation">
+          <button class="nav-item active" data-page="explorer">
+            <span data-icon="orbit"></span>Explorer<span class="nav-dot"></span>
+          </button>
+          <button class="nav-item" data-page="playground">
+            <span data-icon="chat"></span>Playground
+          </button>
+          <button class="nav-item" data-page="experiments">
+            <span data-icon="flask"></span>Experiments<span
+              id="experiment-count"
+              class="nav-count"
+              >0</span
+            >
+          </button>
+        </nav>
+        <div class="sidebar-note">
+          <span class="note-spark">✧</span
+          ><strong>Follow your curiosity.</strong>
+          <p>
+            Start with a neuron.<br />See what it notices.<br />Find out what it
+            changes.
+          </p>
+          <button id="open-guide">A quick introduction <span>↗</span></button>
+        </div>
+        <div class="sidebar-bottom">
+          <button class="nav-item" id="manage-models">
+            <span data-icon="sliders"></span>Models & connections
+          </button>
+          <div class="local-status">
+            <span class="status-dot"></span>Running locally<span class="version"
+              >v0.1</span
+            >
+          </div>
+        </div>
+      </aside>
+      <div class="main-shell">
+        <header class="topbar">
+          <div class="breadcrumb">
+            Workspace <span>/</span> <strong id="page-label">Explorer</strong>
+          </div>
+          <div class="header-actions">
+            <span class="privacy"
+              ><span data-icon="shield"></span> Your workspace, on your
+              machine</span
+            ><button
+              class="icon-button"
+              id="help-button"
+              aria-label="Open introduction"
+            >
+              <span data-icon="help"></span>
+            </button>
+          </div>
+        </header>
+        <main>
+          <section class="model-bar" aria-label="Active model">
+            <button id="model-picker" class="model-picker">
+              <span class="model-avatar">Q</span
+              ><span
+                ><small>ACTIVE MODEL</small
+                ><strong id="active-model">Qwen3.5 · 4B</strong></span
+              ><span data-icon="chevron"></span></button
+            ><span id="source-badge" class="badge demo">Demo mode</span>
+            <div class="capabilities" id="capabilities"></div>
+            <button class="text-button" id="connect-model">
+              Connect a model <span>＋</span>
+            </button>
+          </section>
+          <div id="global-error" role="alert" class="error-banner" hidden></div>
+          <div id="loading" class="loading-banner" role="status" hidden>
+            <span class="spinner"></span
+            ><span
+              >Opening model… First use may download weights. This can take
+              several minutes.</span
+            >
+          </div>
+          <section class="page" id="page-explorer">
+            <div class="page-heading">
+              <div>
+                <div class="eyebrow">A NEW PERSPECTIVE</div>
+                <h1>Look a little closer.</h1>
+                <p>
+                  Explore a model’s neurons. Discover what they notice and what
+                  they change.
+                </p>
+              </div>
+              <span class="heading-decoration" aria-hidden="true">✳</span>
+            </div>
+            <div class="demo-notice" id="demo-notice">
+              <span data-icon="info"></span
+              ><span
+                >You’re exploring an illustrative dataset. Connect a local model
+                to measure real activations.</span
+              ><button id="notice-connect">Connect model <span>→</span></button>
+            </div>
+            <div id="api-empty" class="empty-card" hidden>
+              <span data-icon="chat"></span>
+              <h2>This connection is ready for conversation.</h2>
+              <p>
+                Neuron inspection needs access to model weights. Use this model
+                in Playground, or add a local Hugging Face model to explore its
+                neurons.
+              </p>
+              <button class="primary" id="go-playground">
+                Open Playground <span>→</span>
+              </button>
+            </div>
+            <div id="inspection-workspace">
+              <div class="explorer-grid">
+                <section class="card atlas-card">
+                  <div class="card-header">
+                    <div>
+                      <h2>
+                        Neuron atlas
+                        <span class="badge subtle">Sampled view</span>
+                      </h2>
+                      <p id="atlas-caption">
+                        12 layers · indexed by neuron position
+                      </p>
+                    </div>
+                    <button
+                      class="icon-button"
+                      id="reset-atlas"
+                      aria-label="Reset atlas view"
+                      title="Reset view"
+                    >
+                      <span data-icon="reset"></span>
+                    </button>
+                  </div>
+                  <div class="atlas-toolbar">
+                    <div class="segmented" aria-label="Atlas view">
+                      <button class="selected" id="map-view">Map</button
+                      ><button id="list-view">List</button>
+                    </div>
+                    <div class="atlas-filters">
+                      <label
+                        >Layer
+                        <select
+                          id="layer-filter"
+                          aria-label="Filter atlas by layer"
+                        >
+                          <option value="">All layers</option>
+                        </select></label
+                      ><label
+                        ><span class="sr-only">Find neuron by ID or theme</span
+                        ><input
+                          id="neuron-search"
+                          placeholder="Find a neuron…"
+                          type="search"
+                      /></label>
+                    </div>
+                  </div>
+                  <div class="atlas-stage" id="atlas-stage">
+                    <svg
+                      id="atlas"
+                      viewBox="0 0 780 340"
+                      role="group"
+                      aria-label="Sampled neuron atlas. Use Tab to select a neuron."
+                    ></svg>
+                    <div id="atlas-list" hidden></div>
+                    <div id="atlas-empty" hidden>
+                      No neurons match your search.
+                    </div>
+                  </div>
+                  <div class="atlas-footer">
+                    <span
+                      ><i class="legend-dot lilac"></i
+                      ><span id="atlas-legend">Illustrative activity</span
+                      ><span class="legend-scale"></span>Low
+                      <span class="legend-high">High</span></span
+                    ><span id="atlas-tip"
+                      >Select a dot to explore <span>↗</span></span
+                    >
+                  </div>
+                </section>
+                <section class="card spotlight">
+                  <div class="card-header">
+                    <h2>Neuron spotlight</h2>
+                    <span class="small-spark">✧</span>
+                  </div>
+                  <div class="spotlight-content">
+                    <div class="neuron-id">
+                      <span class="badge purple" id="neuron-id">L8 · N2742</span
+                      ><span class="source-label" id="neuron-source"
+                        >ILLUSTRATIVE</span
+                      >
+                    </div>
+                    <h3 id="neuron-title">Extraterrestrial concepts</h3>
+                    <p id="neuron-description">
+                      Space, imagined worlds, and extraterrestrial identities.
+                    </p>
+                    <div
+                      class="detail-tabs"
+                      role="tablist"
+                      aria-label="Neuron details"
+                    >
+                      <button
+                        class="active"
+                        role="tab"
+                        aria-selected="true"
+                        id="overview-tab"
+                      >
+                        Overview</button
+                      ><button
+                        role="tab"
+                        aria-selected="false"
+                        id="activation-tab"
+                      >
+                        Activations
+                      </button>
+                    </div>
+                    <div id="overview-panel" role="tabpanel">
+                      <div class="small-label">ASSOCIATED TOKENS</div>
+                      <div id="token-chips" class="token-chips"></div>
+                      <div class="insight">
+                        <span data-icon="bulb"></span>
+                        <p id="neuron-insight">
+                          A label is a starting point. Test a few different
+                          prompts to see whether the pattern holds.
+                        </p>
+                      </div>
+                      <button class="secondary full" id="try-neuron">
+                        Try this neuron <span>↙</span>
+                      </button>
+                    </div>
+                    <div id="activation-panel" role="tabpanel" hidden>
+                      <label for="probe-text" class="small-label"
+                        >WHAT DOES THIS NEURON NOTICE?</label
+                      ><textarea id="probe-text" rows="3">
+An alien watches the stars from a distant planet.</textarea
+                      ><button class="secondary full" id="probe-button">
+                        Inspect activations <span>→</span>
+                      </button>
+                      <div id="probe-result" aria-live="polite"></div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <section class="card experiment-card">
+                <div class="card-header">
+                  <div>
+                    <div class="small-label">
+                      FROM OBSERVATION TO EXPERIMENT
+                    </div>
+                    <h2>One neuron. A different response.</h2>
+                    <p>
+                      Use the same prompt, change one activation, and compare.
+                    </p>
+                  </div>
+                  <span class="experiment-icon" data-icon="flask"></span>
+                </div>
+                <form id="compare-form">
+                  <label class="sr-only" for="compare-prompt"
+                    >Comparison prompt</label
+                  >
+                  <div class="prompt-row">
+                    <span data-icon="chat"></span
+                    ><textarea
+                      id="compare-prompt"
+                      rows="1"
+                      maxlength="12000"
+                      required
+                      placeholder="Ask the model something…"
+                    >
+Who are you?</textarea
+                    ><button class="primary" id="compare-button" type="submit">
+                      <span data-icon="play"></span>Run comparison
+                    </button>
+                  </div>
+                  <div class="experiment-controls">
+                    <span class="control-neuron" id="control-neuron"
+                      >L8 · N2742</span
+                    ><label class="gain-label" for="strength"
+                      >Neuron gain
+                      <input
+                        id="strength"
+                        type="range"
+                        min="0"
+                        max="3"
+                        step="0.1"
+                        value="1.8"
+                      /><output id="strength-value" for="strength"
+                        >1.8×</output
+                      ></label
+                    ><span class="gain-help" id="gain-help">1× = unchanged</span
+                    ><label class="token-limit"
+                      >Output
+                      <select
+                        id="max-tokens"
+                        aria-label="Maximum output tokens"
+                      >
+                        <option value="80">80 tokens</option>
+                        <option value="160" selected>160 tokens</option>
+                        <option value="320">320 tokens</option>
+                      </select></label
+                    >
+                  </div>
+                </form>
+                <div id="comparison-results" aria-live="polite" hidden></div>
+                <div class="experiment-hint" id="experiment-hint">
+                  <span data-icon="spark"></span
+                  ><span
+                    >A small change can reveal an interesting pattern. Try a
+                    gain of 0× to suppress the neuron.</span
+                  >
+                </div>
+              </section>
+            </div>
+            <footer class="page-footer">
+              <span>Made for questions, not conclusions.</span
+              ><span
+                >Small experiments. Clearer understanding. <span>✧</span></span
+              >
+            </footer>
+          </section>
+          <section class="page" id="page-playground" hidden>
+            <div class="page-heading">
+              <div>
+                <div class="eyebrow">A SPACE TO EXPERIMENT</div>
+                <h1>Start a conversation.</h1>
+                <p>
+                  Test a prompt with your active model. Every request starts
+                  fresh.
+                </p>
+              </div>
+            </div>
+            <section class="card playground-card">
+              <div class="card-header">
+                <h2>Prompt playground</h2>
+                <span class="badge subtle" id="chat-model-label"
+                  >Active model</span
+                >
+              </div>
+              <div class="chat-starter">
+                <span>✧</span>
+                <h3>What’s on your mind?</h3>
+                <p>
+                  Ask a question, explore an idea, or test a favorite prompt.
+                </p>
+              </div>
+              <div id="chat-output" aria-live="polite"></div>
+              <form id="chat-form">
+                <label for="chat-prompt" class="small-label">YOUR PROMPT</label
+                ><textarea
+                  id="chat-prompt"
+                  required
+                  rows="4"
+                  maxlength="12000"
+                  placeholder="Explain something you find interesting…"
+                ></textarea>
+                <div class="chat-form-footer">
+                  <span>Greedy decoding · up to 160 tokens</span
+                  ><button class="primary" id="chat-button" type="submit">
+                    Generate response <span>→</span>
+                  </button>
+                </div>
+              </form>
+            </section>
+          </section>
+          <section class="page" id="page-experiments" hidden>
+            <div class="page-heading">
+              <div>
+                <div class="eyebrow">YOUR RESEARCH NOTEBOOK</div>
+                <h1>Keep the interesting bits.</h1>
+                <p>
+                  Your comparisons are saved locally, with the model and
+                  settings that produced them.
+                </p>
+              </div>
+              <button class="secondary" id="export-all">
+                <span data-icon="download"></span>Export JSON
+              </button>
+            </div>
+            <div id="experiments-list"></div>
+          </section>
+        </main>
+      </div>
+    </div>
+    <dialog id="model-dialog">
+      <div class="dialog-header">
+        <div>
+          <div class="eyebrow">MAKE IT YOURS</div>
+          <h2>Models & connections</h2>
+        </div>
+        <button
+          class="icon-button dialog-close"
+          aria-label="Close model connections"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <p class="dialog-intro">Switch models without changing your workflow.</p>
+      <div id="model-list"></div>
+      <details id="add-model-details">
+        <summary>＋ Add a model connection</summary>
+        <form id="model-form">
+          <div class="form-grid">
+            <label
+              >Connection name<input
+                name="name"
+                required
+                maxlength="80"
+                placeholder="My local Qwen" /></label
+            ><label
+              >Provider<select name="provider" id="provider-select">
+                <option value="local">Hugging Face · local weights</option>
+                <option value="ollama">Ollama · chat API</option>
+                <option value="compatible">OpenAI-compatible · chat API</option>
+              </select></label
+            >
+          </div>
+          <label
+            >Model ID<input
+              name="model"
+              required
+              maxlength="300"
+              placeholder="Qwen/Qwen3-0.6B"
+          /></label>
+          <div id="http-fields" hidden>
+            <label
+              >Base URL<input
+                name="endpoint"
+                type="url"
+                placeholder="http://localhost:11434" /></label
+            ><label
+              >API key environment variable
+              <span class="optional">optional</span
+              ><input
+                name="key_env"
+                maxlength="80"
+                placeholder="LLM_API_KEY"
+                autocomplete="off"
+            /></label>
+          </div>
+          <p class="form-hint" id="provider-hint">
+            Requires the local inference extra. First use downloads the model
+            weights. Dense MLP architecture is detected automatically.
+          </p>
+          <div id="model-form-error" class="form-error" role="alert"></div>
+          <button class="primary full" type="submit" id="save-model">
+            Add connection
+          </button>
+        </form>
+      </details>
+    </dialog>
+    <dialog id="neuron-dialog">
+      <div class="dialog-header">
+        <div>
+          <div class="eyebrow">FOLLOW YOUR CURIOSITY</div>
+          <h2>Go to a neuron</h2>
+        </div>
+        <button
+          class="icon-button dialog-close"
+          aria-label="Close neuron selector"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <p class="dialog-intro">
+        Open any neuron, including those outside the sampled atlas.
+      </p>
+      <form id="jump-form">
+        <div class="form-grid">
+          <label
+            >Layer<input
+              id="jump-layer"
+              type="number"
+              min="0"
+              required /></label
+          ><label
+            >Neuron index<input id="jump-neuron" type="number" min="0" required
+          /></label>
+        </div>
+        <p class="form-hint" id="jump-bounds"></p>
+        <p class="form-error" id="jump-error" role="alert"></p>
+        <button class="primary full" id="jump-button" type="submit">
+          Explore neuron →
+        </button>
+      </form>
+    </dialog>
+    <dialog id="guide-dialog">
+      <div class="dialog-header">
+        <div>
+          <div class="eyebrow">WELCOME TO LLM EXPLORE</div>
+          <h2>A small window into a model.</h2>
+        </div>
+        <button
+          class="icon-button dialog-close"
+          aria-label="Close introduction"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <div class="guide-step">
+        <span>01</span>
+        <div>
+          <h3>Choose your model.</h3>
+          <p>
+            Start in demo mode, load local Hugging Face weights, or connect a
+            chat API. The capability badges show what each model supports.
+          </p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span>02</span>
+        <div>
+          <h3>Follow a neuron.</h3>
+          <p>
+            The atlas samples neurons across layers by their index. Select one,
+            or use Go to neuron to open any index. Inspect signed activations on
+            your text. The layout does not imply a circuit or semantic
+            similarity.
+          </p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span>03</span>
+        <div>
+          <h3>Change one thing.</h3>
+          <p>
+            Compare an unchanged response with a response that scales one MLP
+            neuron. 1× leaves it alone, 0× suppresses it, and 2× doubles it.
+            Both runs use greedy decoding.
+          </p>
+        </div>
+      </div>
+      <div class="guide-note">
+        Demo labels, activity, and responses are synthetic. Live neuron labels
+        are left unnamed until you investigate them. API connections provide
+        chat only. Experiments are stored on this machine; API prompts go to
+        your configured endpoint.
+      </div>
+    </dialog>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
